@@ -152,18 +152,18 @@ public:
    /**
     * \brief Base type to describe a job
     */
-   struct Operation
+   struct Job
    {
       virtual promise_base* Promise() = 0;
 
-      virtual ~Operation()
+      virtual ~Job()
       {
          if(mShouldRelease) {
             mCoroutine.destroy();
          }
 
       }
-      Operation(const std::experimental::coroutine_handle<>& handle): mCoroutine( handle ) {}
+      Job(const std::experimental::coroutine_handle<>& handle): mCoroutine( handle ) {}
       // bool RescheduleOp(Scheduler& newScheduler)
       // {
       //    promise_base* promise = Promise();
@@ -207,10 +207,10 @@ public:
     * \tparam P Promise Type
     */
    template<typename P>
-   struct OperationT: public Operation
+   struct JobT: public Job
    {
-      OperationT(const std::experimental::coroutine_handle<P>& coro)
-         : Operation( coro )
+      JobT(const std::experimental::coroutine_handle<P>& coro)
+         : Job( coro )
       {
          coro.promise().MarkWaited();
       }
@@ -220,7 +220,7 @@ public:
          return &std::experimental::coroutine_handle<P>::from_address( mCoroutine.address() ).promise();
       };
 
-      ~OperationT()
+      ~JobT()
       {
          bool shouldRelease = Promise()->WaiterCount() == 1 && mCoroutine.done();
          mShouldRelease = shouldRelease;
@@ -240,17 +240,17 @@ public:
    uint GetMainThreadIndex() const;
    bool IsCurrentThreadWorker() const;
 
-   void EnqueueJob(Operation* op);
+   void EnqueueJob(Job* op);
 
    size_t EstimateFreeWorkerCount() const { return mFreeWorkerCount.load(std::memory_order_relaxed); }
 
    template<typename Promise>
-   Operation* AllocateOp(const std::experimental::coroutine_handle<Promise>& handle)
+   Job* AllocateOp(const std::experimental::coroutine_handle<Promise>& handle)
    {
-      return new OperationT<Promise>( handle );
+      return new JobT<Promise>( handle );
    }
 
-   void ReleaseOp(Operation* op)
+   void ReleaseOp(Job* op)
    {
       delete op;
    }
@@ -260,7 +260,7 @@ public:
    {
       bool assigned = handle.promise().SetExecutor( *this );
       if(assigned) {
-         Operation* op = AllocateOp( handle );
+         Job* op = AllocateOp( handle );
          op->ScheduleOp( *this );
       }
    }
@@ -273,7 +273,7 @@ protected:
 
    void WorkerThreadEntry(uint threadIndex);
    void WorkerThreadEntry( const SysEvent& exitSignal );
-   Operation* FetchNextJob();
+   Job* FetchNextJob();
 
    ////////// data ///////////
 
@@ -281,7 +281,7 @@ protected:
    std::vector<std::thread> mWorkerThreads;
    std::unique_ptr<Worker[]> mWorkerContexts;
    std::atomic<bool> mIsRunning;
-   LockQueue<Operation*> mJobs;
+   LockQueue<Job*> mJobs;
    std::atomic_size_t mFreeWorkerCount;
 };
 

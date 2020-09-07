@@ -6,10 +6,10 @@
 namespace co
 {
 
-template<bool Instant, template<bool, typename> typename R, typename T>
+template<bool Deferred, template<bool, typename> typename R, typename T>
 class base_token;
 
-template<bool Instant, template<bool, typename> typename R, typename T>
+template<bool Deferred, template<bool, typename> typename R, typename T>
 struct token_promise;
 
 
@@ -19,10 +19,10 @@ struct token_promise;
  * \tparam R templated token type token<Instant, T>, see how this is used in `token_promise`
  * \tparam T 
  */
-template<bool Instant, template<bool, typename> typename R, typename T>
+template<bool Deferred, template<bool, typename> typename R, typename T>
 struct token_dispatcher
 {
-   using promise_t = token_promise<Instant, R, T>;
+   using promise_t = token_promise<Deferred, R, T>;
 
    token_dispatcher(bool shouldSuspend):shouldSuspend( shouldSuspend ) {}
    bool shouldSuspend;
@@ -48,14 +48,14 @@ struct token_dispatcher
       // eOpState expectResumeFromState = (shouldSuspend || Instant) ? eOpState::Scheduled : eOpState::Suspended;
       
       realHandle.promise().SetState( eOpState::Created, mExpectResumeFromState );
-      if constexpr( Instant ) {
+      if constexpr( Deferred ) {
+         scheduled = true;
+      } else {
          if( shouldSuspend ) {
             Scheduler::Get().Schedule( realHandle );
             // printf( "\n schedule on the job system\n" );   
          }
          scheduled = shouldSuspend;
-      } else {
-         scheduled = true;
       }
 
 
@@ -75,10 +75,10 @@ protected:
 };
 
 
-template<bool Instant, template<bool, typename> typename R, typename T>
+template<bool Deferred, template<bool, typename> typename R, typename T>
 struct token_promise: promise_base
 {
-   friend struct token_dispatcher<Instant, R, T>;
+   friend struct token_dispatcher<Deferred, R, T>;
    future<T>* futuerPtr = nullptr;
    T value;
 
@@ -89,7 +89,7 @@ struct token_promise: promise_base
       auto& scheduler = Scheduler::Get();
       bool isOnMainThread = scheduler.GetMainThreadIndex() == scheduler.GetThreadIndex();
 
-      return token_dispatcher<Instant, R, T>{ isOnMainThread };
+      return token_dispatcher<Deferred, R, T>{ isOnMainThread };
    }
 
    template<
@@ -108,16 +108,16 @@ struct token_promise: promise_base
       return {};
    }
 
-   R<Instant, T> get_return_object() noexcept;
+   R<Deferred, T> get_return_object() noexcept;
 
    const T& result() { return value; }
 };
 
-template<bool Instant, template<bool, typename> typename R>
-struct token_promise<Instant, R, void>: promise_base
+template<bool Deferred, template<bool, typename> typename R>
+struct token_promise<Deferred, R, void>: promise_base
 {
 public:
-   friend struct token_dispatcher<Instant, R, void>;
+   friend struct token_dispatcher<Deferred, R, void>;
    future<void>* futuerPtr = nullptr;
 
    auto initial_suspend() noexcept
@@ -126,13 +126,13 @@ public:
       auto& scheduler = Scheduler::Get();
       bool isWorkerThread = scheduler.IsCurrentThreadWorker();
 
-      return token_dispatcher<Instant, R, void>( isWorkerThread );
+      return token_dispatcher<Deferred, R, void>( isWorkerThread );
    }
 
    final_awaitable final_suspend() { return {}; }
 
 
-   R<Instant, void> get_return_object() noexcept;
+   R<Deferred, void> get_return_object() noexcept;
 
    void return_void() noexcept {}
 
@@ -148,12 +148,12 @@ public:
  * \tparam R 
  * \tparam T 
  */
-template<bool Instant, template<bool, typename> typename R, typename T>
+template<bool Deferred, template<bool, typename> typename R, typename T>
 class base_token
 {
 public:
-   static constexpr bool IsInstant = Instant;
-   using promise_type = token_promise<Instant, R, T>;
+   static constexpr bool IsDeferred = Deferred;
+   using promise_type = token_promise<Deferred, R, T>;
    using coro_handle_t = std::experimental::coroutine_handle<promise_type>;
 
    base_token(coro_handle_t handle, future<T>* future = nullptr) noexcept: mHandle( handle )
@@ -244,7 +244,7 @@ public:
 
       };
 
-      if constexpr (!Instant) {
+      if constexpr (Deferred) {
          Dispatch();
       }
 
@@ -272,7 +272,7 @@ public:
          }
       };
 
-      if constexpr (!Instant) {
+      if constexpr (Deferred) {
          Dispatch();
       }
       promise_base& promise = mHandle.promise();
@@ -280,7 +280,7 @@ public:
       return awaitable{ mHandle };
    }
 
-   template<typename=std::enable_if_t<!Instant>>
+   template<typename=std::enable_if_t<Deferred>>
    void Launch() const
    {
       Dispatch();
@@ -298,16 +298,16 @@ protected:
    }
 };
 
-template<bool Instant, template<bool, typename> typename R, typename T>
-R<Instant, T> token_promise<Instant, R, T>::get_return_object() noexcept
+template<bool Deferred, template<bool, typename> typename R, typename T>
+R<Deferred, T> token_promise<Deferred, R, T>::get_return_object() noexcept
 {
-   return R<Instant, T>{ std::experimental::coroutine_handle<token_promise>::from_promise( *this ) };
+   return R<Deferred, T>{ std::experimental::coroutine_handle<token_promise>::from_promise( *this ) };
 }
 
-template<bool Instant, template<bool, typename> typename R>
-R<Instant, void> token_promise<Instant, R, void>::get_return_object() noexcept
+template<bool Deferred, template<bool, typename> typename R>
+R<Deferred, void> token_promise<Deferred, R, void>::get_return_object() noexcept
 {
-   return R<Instant, void>{ std::experimental::coroutine_handle<token_promise>::from_promise( *this ) };
+   return R<Deferred, void>{ std::experimental::coroutine_handle<token_promise>::from_promise( *this ) };
 }
 
 }

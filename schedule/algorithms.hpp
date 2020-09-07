@@ -9,7 +9,7 @@ namespace co
 template<typename Deferred>
 co::deferred_token<> parallel_for( std::vector<Deferred> deferred )
 {
-   static_assert(!Deferred::IsInstant, "deferred jobs only");
+   static_assert(Deferred::IsDeferred, "deferred jobs only");
 
    single_consumer_counter_event counter(deferred.size());
 
@@ -29,7 +29,7 @@ co::deferred_token<> parallel_for( std::vector<Deferred> deferred )
 template<typename Deferred>
 co::deferred_token<> sequential_for( std::vector<Deferred> deferred )
 {
-   static_assert(!Deferred::IsInstant, "deferred jobs only");
+   static_assert(Deferred::IsDeferred, "deferred jobs only");
 
    auto makeTask = []( co::token<> before, Deferred job ) -> co::token<>
    {

@@ -76,7 +76,7 @@ void Scheduler::WorkerThreadEntry( uint threadIndex )
    gScheduler = this;
    gIsWorker = true;
    while(true) {
-      Operation* op = FetchNextJob();
+      Job* op = FetchNextJob();
       if(op == nullptr) {
          std::this_thread::yield();
       } else {
@@ -104,7 +104,7 @@ void Scheduler::WorkerThreadEntry( const SysEvent& exitSignal )
    gIsWorker = true;
 
    while( true ) {
-      Operation* op = FetchNextJob();
+      Job* op = FetchNextJob();
       if( op == nullptr ) {
          std::this_thread::yield();
       }
@@ -129,14 +129,14 @@ void Scheduler::WorkerThreadEntry( const SysEvent& exitSignal )
 
 }
 
-Scheduler::Operation* Scheduler::FetchNextJob()
+Scheduler::Job* Scheduler::FetchNextJob()
 {
-   Operation* op = nullptr;
+   Job* op = nullptr;
    mJobs.Dequeue( op );
    return op;
 }
 
-void Scheduler::EnqueueJob( Operation* op )
+void Scheduler::EnqueueJob( Job* op )
 {
    mJobs.Enqueue( op );
 }
