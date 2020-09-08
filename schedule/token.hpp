@@ -79,6 +79,10 @@ template<bool Deferred, template<bool, typename> typename R, typename T>
 struct token_promise: promise_base
 {
    friend struct token_dispatcher<Deferred, R, T>;
+
+   // When move ctor is invoked in token, we will update this pointer, this might cause race condition.
+   // consider someone is trying to store value to the old future object after de-ref the pointer,
+   // and at the same time, the move happens.
    future<T>* futuerPtr = nullptr;
    T value;
 
@@ -87,9 +91,9 @@ struct token_promise: promise_base
 
       // MSVC seems have a bug here that the promise object is initialized after the initial_suspend
       auto& scheduler = Scheduler::Get();
-      bool isOnMainThread = scheduler.GetMainThreadIndex() == scheduler.GetThreadIndex();
+      bool isWorkerThread = scheduler.IsCurrentThreadWorker();
 
-      return token_dispatcher<Deferred, R, T>{ isOnMainThread };
+      return token_dispatcher<Deferred, R, T>{ !isWorkerThread };
    }
 
    template<
@@ -126,7 +130,7 @@ public:
       auto& scheduler = Scheduler::Get();
       bool isWorkerThread = scheduler.IsCurrentThreadWorker();
 
-      return token_dispatcher<Deferred, R, void>( isWorkerThread );
+      return token_dispatcher<Deferred, R, void>( !isWorkerThread );
    }
 
    final_awaitable final_suspend() { return {}; }
@@ -134,7 +138,12 @@ public:
 
    R<Deferred, void> get_return_object() noexcept;
 
-   void return_void() noexcept {}
+   void return_void() noexcept
+   {
+      if(futuerPtr) {
+         futuerPtr->Set();
+      }
+   }
 
    void unhandled_exception() noexcept { ERROR_DIE( "unhandled exception in token promsie" ); }
 

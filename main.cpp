@@ -146,6 +146,8 @@ int main()
 	
 	auto saveWorld = ApplyImmunization( healthyPeople );
 	saveWorld.Result();
-	
+
+	printf( "\n\nDone!" );
+	scanf( "%d" );
 	return 0;
 }
