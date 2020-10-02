@@ -1,4 +1,5 @@
 # cpp-coroutine-job-system
+`./CppCon2020-coroutine-job-system.pptx`: the slide deck for CppCon 2020
 
 # Environment
 I only tested on windows with MSVC because I used some OS API and did not bother to make the system portable. But the code should be able to compile with some change of utility functions according to the target platform. User will also need to change the cmake file to update corresponding compiler switch.
