@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <atomic>
-#include <experimental/resumable>
+#include <coroutine>
 
 
 #include "scheduler.hpp"
@@ -19,7 +19,7 @@ public:
       awaitable( single_consumer_counter_event& e ): e( e ) {}
       bool await_ready() const noexcept { return e.IsReady(); }
       template<typename Promise>
-      bool await_suspend( std::experimental::coroutine_handle<Promise> awaitingCoroutine ) noexcept
+      bool await_suspend( std::coroutine_handle<Promise> awaitingCoroutine ) noexcept
       {
          if( !e.IsReady() ) {
             e.Wait();

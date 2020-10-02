@@ -2,7 +2,7 @@
 #include <atomic>
 #include <thread>
 #include <vector>
-#include <experimental/coroutine>
+#include <coroutine>
 
 #include "LockQueue.hpp"
 #include "../utils.hpp"
@@ -53,7 +53,7 @@ struct promise_base
       bool await_ready() { return false; }
 
       template<typename Promise>
-      void await_suspend( std::experimental::coroutine_handle<Promise> handle );
+      void await_suspend( std::coroutine_handle<Promise> handle );
 
       void await_resume() {}
    };
@@ -94,7 +94,7 @@ struct promise_base
    int  WaiterCount() const { return mAwaiter.load( std::memory_order_acquire ); }
 
    template<typename Promise>
-   bool SetContinuation(const std::experimental::coroutine_handle<Promise>& parent)
+   bool SetContinuation(const std::coroutine_handle<Promise>& parent)
    {
       promise_base& parentPromise = parent.promise();
 
@@ -130,7 +130,7 @@ protected:
    std::atomic<int> mAwaiter = 0;
    std::atomic<eOpState> mState;
    job_id_t mJobId{};
-   std::experimental::coroutine_handle<> mParent;
+   std::coroutine_handle<> mParent;
    std::atomic<bool> mHasParent;
    void(*mScheduleParent)(promise_base&);
    inline static std::atomic<job_id_t> sJobID;
@@ -163,7 +163,7 @@ public:
          }
 
       }
-      Job(const std::experimental::coroutine_handle<>& handle): mCoroutine( handle ) {}
+      Job(const std::coroutine_handle<>& handle): mCoroutine( handle ) {}
       // bool RescheduleOp(Scheduler& newScheduler)
       // {
       //    promise_base* promise = Promise();
@@ -197,7 +197,7 @@ public:
 
       bool Done() { return mCoroutine.done(); }
 
-      std::experimental::coroutine_handle<> mCoroutine;
+      std::coroutine_handle<> mCoroutine;
       bool mShouldRelease = false;
 	};
 
@@ -209,7 +209,7 @@ public:
    template<typename P>
    struct JobT: public Job
    {
-      JobT(const std::experimental::coroutine_handle<P>& coro)
+      JobT(const std::coroutine_handle<P>& coro)
          : Job( coro )
       {
          coro.promise().MarkWaited();
@@ -217,7 +217,7 @@ public:
 
       promise_base* Promise() override
       {
-         return &std::experimental::coroutine_handle<P>::from_address( mCoroutine.address() ).promise();
+         return &std::coroutine_handle<P>::from_address( mCoroutine.address() ).promise();
       };
 
       ~JobT()
@@ -245,7 +245,7 @@ public:
    size_t EstimateFreeWorkerCount() const { return mFreeWorkerCount.load(std::memory_order_relaxed); }
 
    template<typename Promise>
-   Job* AllocateOp(const std::experimental::coroutine_handle<Promise>& handle)
+   Job* AllocateOp(const std::coroutine_handle<Promise>& handle)
    {
       return new JobT<Promise>( handle );
    }
@@ -256,7 +256,7 @@ public:
    }
 
    template<typename Promise>
-   void Schedule( const std::experimental::coroutine_handle<Promise>& handle )
+   void Schedule( const std::coroutine_handle<Promise>& handle )
    {
       bool assigned = handle.promise().SetExecutor( *this );
       if(assigned) {
@@ -287,12 +287,12 @@ protected:
 
 template< typename Promise > void promise_base::ScheduleParentTyped( promise_base& self )
 {
-   auto parent = std::experimental::coroutine_handle<Promise>::from_address( self.mParent.address() );
+   auto parent = std::coroutine_handle<Promise>::from_address( self.mParent.address() );
    self.mOwner->Schedule( parent );
 }
 
 template< typename Promise > void promise_base::final_awaitable::await_suspend(
-   std::experimental::coroutine_handle<Promise> handle )
+   std::coroutine_handle<Promise> handle )
 {
    // we expect that should be derived from promise_base
    static_assert(std::is_base_of<promise_base, Promise>::value, "Promise should be derived from promise_base");

@@ -5,6 +5,7 @@
 I only tested on windows with MSVC because I used some OS API and did not bother to make the system portable. But the code should be able to compile with some change of utility functions according to the target platform. User will also need to change the cmake file to update corresponding compiler switch.
 
 # Build
+- Tested on *visual studio 16.8 Preview 3*, which has fully implemented the coroutine TS
 - Open folder in VS
 - Run
 

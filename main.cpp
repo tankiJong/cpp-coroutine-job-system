@@ -6,7 +6,7 @@
 #include "schedule/algorithms.hpp"
 #include "schedule/scheduler.hpp"
 #include "schedule/task.hpp"
-#include <ranges>
+
 using namespace std;
 
 using namespace co;

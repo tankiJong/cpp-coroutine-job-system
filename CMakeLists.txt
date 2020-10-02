@@ -8,7 +8,6 @@ project (cpp-coroutine-job)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CMAKE_CXX_FLAGS "/await")
 
 file(GLOB "*.h" "*.cpp" fsource)
 # Add source to this project's executable.
