@@ -111,8 +111,8 @@ struct promise_base
 
       mParent = parent;
       mScheduleParent = &ScheduleParentTyped<Promise>;
-      // Expect the status is `open`. This means it is safe to resume the parent coroutine.
-      // If it's not, that means it is `` already goes through `ScheduleParent`, which is triggered in final_suspend
+      // Expect the status is `open`. This means it is safe to resume the parent coroutine as a continuation.
+      // If it's not, that means it has already gone through `ScheduleParent`, which is triggered in final_suspend, so if we set parent here, it won't be resumed properly.
       ParentScheduleStatus oldStatus = ParentScheduleStatus::Open;
       bool expected = mHasParent.compare_exchange_strong(oldStatus, ParentScheduleStatus::Assigned);
       ENSURES(expected || (!expected && oldStatus == ParentScheduleStatus::Closed));
