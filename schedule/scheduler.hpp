@@ -39,11 +39,18 @@ struct promise_base
 
    inline static std::atomic<int> sAllocated = 0;
 
+   enum class ParentScheduleStatus : uint8_t 
+   {
+      Closed = 0, // It's closed, cannot assign parent to it
+      Open, // It can accept parent
+      Assigned, // Parent is assigned
+   };
+
    promise_base() noexcept
       : mOwner( nullptr )
     , mState( eOpState::Created )
     , mJobId( sJobID.fetch_add( 1 ) )
-    , mHasParent( false )
+    , mHasParent( ParentScheduleStatus::Open )
    {
       // sAllocated++;
    }
@@ -104,7 +111,12 @@ struct promise_base
 
       mParent = parent;
       mScheduleParent = &ScheduleParentTyped<Promise>;
-      return !mHasParent.exchange(true, std::memory_order_release);
+      // Expect the status is `open`. This means it is safe to resume the parent coroutine.
+      // If it's not, that means it is `` already goes through `ScheduleParent`, which is triggered in final_suspend
+      ParentScheduleStatus oldStatus = ParentScheduleStatus::Open;
+      bool expected = mHasParent.compare_exchange_strong(oldStatus, ParentScheduleStatus::Assigned);
+      ENSURES(expected || (!expected && oldStatus == ParentScheduleStatus::Closed));
+      return expected;
    }
 
    bool SetState(eOpState&& expectState, eOpState newState)
@@ -120,7 +132,9 @@ struct promise_base
    eOpState State() const { return mState.load( std::memory_order_acquire ); }
    void ScheduleParent()
    {
-      if(mHasParent.load( std::memory_order_consume )) {
+      auto status = mHasParent.exchange(ParentScheduleStatus::Closed, std::memory_order_acq_rel);
+      ENSURES(status == ParentScheduleStatus::Assigned || status == ParentScheduleStatus::Open);
+      if(status == ParentScheduleStatus::Assigned) {
          mScheduleParent( *this );
       }
    }
@@ -131,7 +145,7 @@ protected:
    std::atomic<eOpState> mState;
    job_id_t mJobId{};
    std::coroutine_handle<> mParent;
-   std::atomic<bool> mHasParent;
+   std::atomic<ParentScheduleStatus> mHasParent;
    void(*mScheduleParent)(promise_base&);
    inline static std::atomic<job_id_t> sJobID;
 
